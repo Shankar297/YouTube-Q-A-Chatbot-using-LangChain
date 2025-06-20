@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>YouTube Transcript QA</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            font-size: 13px;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+
+        #clearButton {
+            padding: 5px 10px;
+            /* Smaller padding for the clear button */
+            font-size: 12px;
+            /* Smaller font size for the clear button */
+            background-color: #f44336;
+            /* Red background for the clear button */
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 15%;
+            margin-left: 670px;
+            /* Ensures a gap between the input and clear button */
+        }
+
+        #clearButton:hover {
+            background-color: #d32f2f;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #answer {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+            font-size: 25px;
+        }
+
+        #video-thumbnail {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        #question-list li {
+            margin-bottom: 10px;
+            /* Adjust the value as needed */
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>YouTube Video Transcript Q&A</h1>
+
+        <form id="videoForm">
+            <input type="text" id="video_url" name="video_url" placeholder="Enter YouTube URL or Video ID">
+            <button type="submit">Get Transcript</button>
+        </form>
+
+        <div id="video-thumbnail" style="display:none;">
+            <h3>Video Preview:</h3>
+            <iframe id="video-player" width="560" height="315" src="" frameborder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowfullscreen>
+            </iframe>
+        </div>
+
+        <div id="question-section" style="display:none;">
+            <form id="questionForm">
+                <input type="text" id="question" name="question" placeholder="Ask your question">
+                <button type="button" id="clearButton" onclick="clearQuestion()">Clear Question</button>
+                <!-- Clear button --><br>
+                <button type="submit">Ask</button>
+                <button type="button" id="clearButton" onclick="clearAnswer()">Clear Answer</button>
+            </form>
+            <div id="answer"></div>
+        </div>
+
+
+        <div style="display: flex; gap: 20px;">
+            <div style="flex: 2;">
+                <!-- existing content here (video, Q&A, etc.) -->
+            </div>
+
+        </div>
+        <div id="auto-questions" style="flex: 1; display: none; background:#f9f9f9; padding:10px; border-radius:8px;">
+            <h3>Suggested Questions</h3>
+            <ul id="question-list" style="padding-left: 20px;"></ul><br><br>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById("videoForm").addEventListener("submit", function (e) {
+            e.preventDefault();
+            fetch("/process_video", {
+                method: "POST",
+                body: new FormData(this)
+            }).then(response => response.json())
+                .then(data => {
+                    if (data.message) {
+                        alert(data.message);
+                        document.getElementById("question-section").style.display = "block";
+
+                        const videoUrl = `https://www.youtube.com/embed/${data.video_id}`;
+                        document.getElementById("video-player").src = videoUrl;
+                        document.getElementById("video-thumbnail").style.display = "block";
+                        if (data.questions && Object.keys(data.questions).length > 0) {
+                            const listEl = document.getElementById("question-list");
+                            listEl.innerHTML = "";  // Clear previous questions
+
+                            Object.values(data.questions).forEach(q => {
+                                const li = document.createElement("li");
+                                li.textContent = q;
+
+                                // Optional: Make questions clickable to autofill the input box
+                                li.style.cursor = "pointer";
+                                li.addEventListener("click", () => {
+                                    document.getElementById("question").value = q;
+                                });
+
+                                listEl.appendChild(li);
+                            });
+
+                            document.getElementById("auto-questions").style.display = "block";
+                        }
+                    } else {
+                        alert(data.error || "Failed to fetch transcript. Please try again");
+                    }
+                });
+        });
+
+
+        document.getElementById("questionForm").addEventListener("submit", function (e) {
+            e.preventDefault();
+            fetch("/ask", {
+                method: "POST",
+                body: new FormData(this)
+            }).then(response => response.json())
+                .then(data => {
+                    if (data.answer) {
+                        document.getElementById("answer").innerText = data.answer;
+                    } else {
+                        document.getElementById("answer").innerText = data.error || "Failed to fetch answer.";
+                    }
+                });
+        });
+
+        function clearQuestion() {
+            document.getElementById("question").value = ""; // Clear the input field
+        }
+        function clearAnswer() {
+            document.getElementById("answer").innerText = ""; // Clear the answer field
+        }
+    </script>
+</body>
+
+</html>
